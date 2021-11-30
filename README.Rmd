@@ -1,0 +1,30 @@
+---
+output: github_document
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+# This sets the overall chunk and output style
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "README_files/",
+  out.width = "100%"
+)
+
+# This hook enables reference to variables created later on (e.g. in abstract)
+# To refer to such variables, use <%= variable %> or <% code %> (?brew::brew)
+knitr::knit_hooks$set(document = function(x){
+  x1 = paste(x, collapse = '\n')
+  paste(capture.output(brew::brew(text = x1)), collapse = '\n')
+})
+```
+
+# Quick sorting with R
+
+**Author**: Xiurui Zhu<br />
+**Modified**: `r file.info("README.Rmd")$mtime`<br />
+**Compiled**: `r Sys.time()`
+
+## Introduction
+
