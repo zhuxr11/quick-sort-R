@@ -1,8 +1,8 @@
 
 # Quick sorting with R
 
-**Author**: Xiurui Zhu<br /> **Modified**: 2021-11-30 23:10:34<br />
-**Compiled**: 2021-11-30 23:10:40
+**Author**: Xiurui Zhu<br /> **Modified**: 2021-12-05 16:46:47<br />
+**Compiled**: 2021-12-05 16:46:49
 
 ## Introduction
 
@@ -35,7 +35,8 @@ library(tidyverse)
 ### Common function
 
 Sorting involves a basic option of swapping numbers. We first defined a
-helper function with swapping.
+helper function with swapping and a helper function with result
+printing.
 
 ``` r
 swap <- function(vec, i, j) {
@@ -81,7 +82,7 @@ pivot_sort <- function(vec, decreasing = FALSE, ...) {
   # Compare the rest with pivot
   larger_lgl <- vec[-1L] > pivot
   # Add operation count
-  opn <- opn + length(vec) - 1L
+  opn <- opn + length(vec)
   # Get elements on both sides
   left_vec <- vec[-1L][larger_lgl == decreasing]
   right_vec <- vec[-1L][larger_lgl != decreasing]
@@ -111,69 +112,108 @@ pivot_sort(input_vec, decreasing = FALSE)
 #>  [91] 887 890 891 915 923 936 938 952 962 979
 #> 
 #> $opn
-#> [1] 675
+#> [1] 740
 ```
 
 ### Heapsort
 
-Heapsort builds a binary tree out of the vector. It tries to keep the
-root larger than the leaves (when sorting increasingly). After
-traversing all roots, the top root is removed as the largest element in
-the vector. Repeat the process recursively until the length of the
-vector is shortened to 2.
+Heapsort builds a binary tree of *n* layers out of the vector. At first,
+it tries to keep the root larger than the leaves (when sorting
+increasingly) by interating the comparison among root and leaves for *n*
+times, starting from layer *i* for the *i*th iteration. After traversing
+all roots, the top root is removed as the largest element in the vector
+and the last element is used to take its place, keeping the other
+nodes/leaves unchanged. Then, the new top root goes down through the
+tree if it is smaller than any of its leaves until it cannot move any
+more. After that, the top root is removed again and the last element is
+used to take its place. Repeat the process recursively until the length
+of the vector is shortened to 1.
 
 ``` r
-heap_sort <- function(vec, decreasing = FALSE, ...) {
+# Main function
+heap_sort <- function(vec, decreasing = FALSE) {
   stopifnot(anyDuplicated(vec) == 0, length(vec) > 0)
-  arg_list <- list(...)
-  # Initialize finished elements
-  if ("tail" %in% names(arg_list) == TRUE) {
-    tail <- arg_list[["tail"]]
-  } else {
-    tail <- 0L
-  }
-  if (tail > 0L) {
-    vec_tail <- vec[(length(vec) - tail + 1L):length(vec)]
-  } else {
-    vec_tail <- NULL
-  }
-  vec <- vec[1L:(length(vec) - tail)]
   # Initialize operation count
-  if ("opn" %in% names(arg_list) == TRUE) {
-    opn <- arg_list[["opn"]]
+  opn <- 0L
+  # Initial setup by comparing root with leaves from bottom to top
+  # After recur_idx iterations, the recur_idx-th layer is sorted
+  order_res <- purrr::reduce(
+    1:(ceiling(log2(length(vec))) - 1L),
+    function(order_res, recur_idx) {
+      floor(length(vec) / 2L):(2^(recur_idx - 1L)) %>%
+        purrr::reduce(
+          ~ {
+            vec_sort <- .x[["vec"]]
+            opn <- .x[["opn"]]
+            vec_sort <- swap_heap(vec_sort, decreasing, .y)
+            vec_sort <- purrr::pluck(vec_sort, "vec")
+            list(vec = vec_sort, opn = opn + 1L)
+          },
+          .init = order_res
+        )
+    },
+    .init = list(vec = vec, opn = opn)
+  )
+  # Swap the first and last element
+  order_res[["vec"]] <- swap(order_res[["vec"]], 1L, length(order_res[["vec"]]))
+  order_res[["opn"]] <- order_res[["opn"]] + 1L
+  # Recursively call adjust_heap
+  adjust_heap(order_res[["vec"]], decreasing, 1L, order_res[["opn"]])
+}
+# Unit heap swap function
+swap_heap <- function(vec, decreasing = FALSE, cur_idx) {
+  status <- 0L
+  if (decreasing == TRUE) {
+    comp_idx <- which.min(vec[
+      (2L * cur_idx):min(2L * cur_idx + 1L, length(vec))
+    ])
+    sel_idx <- comp_idx + 2L * cur_idx - 1L
+    if (vec[cur_idx] > vec[sel_idx]) {
+      vec <- swap(vec, cur_idx, sel_idx)
+      status <- comp_idx
+    }
   } else {
-    opn <- 0L
+    comp_idx <- which.max(vec[
+      (2L * cur_idx):min(2L * cur_idx + 1L, length(vec))
+    ])
+    sel_idx <- comp_idx + 2L * cur_idx - 1L
+    if (vec[cur_idx] < vec[sel_idx]) {
+      vec <- swap(vec, cur_idx, sel_idx)
+      status <- comp_idx
+    }
   }
-  # Set stop criterion for recursion
-  if (length(vec) == 1L) return(list(vec = c(vec, vec_tail), opn = opn))
-  # Compare root with leaves from bottom to top
-  order_res <- floor(length(vec) / 2L):1L %>%
-    purrr::reduce(
-      ~ {
-        vec_order <- .x[["vec"]]
-        root <- vec_order[.y]
-        left_leaf <- vec_order[2L * .y]
-        opn <- .x[["opn"]]
-        if ((vec_order[.y] > vec_order[2L * .y]) == decreasing) {
-          vec_order <- swap(vec_order, .y, 2L * .y)
-        }
-        opn <- opn + 1L
-        if (2L * .y + 1L <= length(vec_order)) {
-          if ((vec_order[.y] > vec_order[2L * .y + 1L]) == decreasing) {
-            vec_order <- swap(vec_order, .y, 2L * .y + 1L)
-          }
-          opn <- opn + 1L
-        }
-        list(vec = vec_order, opn = opn)
-      },
-      .init = list(vec = vec, opn = opn)
-    )
-  # Move top root to end of vector
-  order_res[["vec"]] <- c(order_res[["vec"]][-1L], order_res[["vec"]][1L])
-  heap_sort(c(order_res[["vec"]], vec_tail),
-            decreasing,
-            opn = order_res[["opn"]],
-            tail = tail + 1L)
+  list(vec = vec, status = status)
+}
+# Recursion function
+adjust_heap <- function(vec, decreasing = FALSE, tail, opn) {
+  # Split vector to sort
+  vec_sort <- vec[1L:(length(vec) - tail)]
+  vec_tail <- vec[(length(vec) - tail + 1L):length(vec)]
+  if (length(vec_sort) > 1L) {
+    # Go through the heap in a top-down manner
+    cur_idx <- 1L
+    while(2L * cur_idx <= length(vec_sort)) {
+      vec_sort <- swap_heap(vec_sort, decreasing, cur_idx)
+      # Update current idx if swap has happened
+      vec_status <- purrr::pluck(vec_sort, "status")
+      vec_sort <- purrr::pluck(vec_sort, "vec")
+      opn <- opn + 1L
+      if (vec_status == 0L) {
+        break
+      } else {
+        cur_idx <- cur_idx * 2L - 1L + vec_status
+      }
+    }
+    # Swap the first and the last elements of vec_sort
+    vec_new <- swap(vec_sort, 1L, length(vec_sort))
+    opn <- opn + 1L
+    # Add sorted tail
+    vec_new <- c(vec_new, vec_tail)
+    adjust_heap(vec_new, decreasing, tail + 1L, opn)
+  } else {
+    # Stop recursion
+    list(vec = vec, opn = opn)
+  }
 }
 
 # Test
@@ -187,5 +227,5 @@ heap_sort(input_vec, decreasing = FALSE)
 #>  [91] 887 890 891 915 923 936 938 952 962 979
 #> 
 #> $opn
-#> [1] 4950
+#> [1] 774
 ```
