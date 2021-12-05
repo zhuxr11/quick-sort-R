@@ -1,8 +1,8 @@
 
 # Quick sorting with R
 
-**Author**: Xiurui Zhu<br /> **Modified**: 2021-12-05 16:46:47<br />
-**Compiled**: 2021-12-05 16:46:49
+**Author**: Xiurui Zhu<br /> **Modified**: 2021-12-05 16:49:59<br />
+**Compiled**: 2021-12-05 16:50:02
 
 ## Introduction
 
@@ -156,9 +156,9 @@ heap_sort <- function(vec, decreasing = FALSE) {
   )
   # Swap the first and last element
   order_res[["vec"]] <- swap(order_res[["vec"]], 1L, length(order_res[["vec"]]))
-  order_res[["opn"]] <- order_res[["opn"]] + 1L
   # Recursively call adjust_heap
-  adjust_heap(order_res[["vec"]], decreasing, 1L, order_res[["opn"]])
+  # Here, opn + 1L stands for the operation of swapping in order_res[["vec"]]
+  adjust_heap(order_res[["vec"]], decreasing, 1L, order_res[["opn"]] + 1L)
 }
 # Unit heap swap function
 swap_heap <- function(vec, decreasing = FALSE, cur_idx) {
@@ -206,10 +206,10 @@ adjust_heap <- function(vec, decreasing = FALSE, tail, opn) {
     }
     # Swap the first and the last elements of vec_sort
     vec_new <- swap(vec_sort, 1L, length(vec_sort))
-    opn <- opn + 1L
     # Add sorted tail
     vec_new <- c(vec_new, vec_tail)
-    adjust_heap(vec_new, decreasing, tail + 1L, opn)
+    # Here, opn + 1L stands for the operation of swapping in vec_new
+    adjust_heap(vec_new, decreasing, tail + 1L, opn + 1L)
   } else {
     # Stop recursion
     list(vec = vec, opn = opn)
