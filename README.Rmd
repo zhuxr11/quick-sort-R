@@ -118,34 +118,77 @@ Heapsort builds a binary tree of *n* layers out of the vector. At first, it trie
 
 ```{r heapsort}
 # Main function
-heap_sort <- function(vec, decreasing = FALSE) {
+heap_sort <- function(vec, decreasing = FALSE, ...) {
   stopifnot(anyDuplicated(vec) == 0, length(vec) > 0)
+  arg_list <- list(...)
+  # Initialize tail length
+  if ("tail" %in% names(arg_list) == TRUE) {
+    tail <- arg_list[["tail"]]
+  } else {
+    tail <- 0L
+  }
   # Initialize operation count
-  opn <- 0L
-  # Initial setup by comparing root with leaves from bottom to top
-  # After recur_idx iterations, the recur_idx-th layer is sorted
-  order_res <- purrr::reduce(
-    1:(ceiling(log2(length(vec))) - 1L),
-    function(order_res, recur_idx) {
-      floor(length(vec) / 2L):(2^(recur_idx - 1L)) %>%
-        purrr::reduce(
-          ~ {
-            vec_sort <- .x[["vec"]]
-            opn <- .x[["opn"]]
-            vec_sort <- swap_heap(vec_sort, decreasing, .y)
-            vec_sort <- purrr::pluck(vec_sort, "vec")
-            list(vec = vec_sort, opn = opn + 1L)
-          },
-          .init = order_res
-        )
-    },
-    .init = list(vec = vec, opn = opn)
-  )
-  # Swap the first and last element
-  order_res[["vec"]] <- swap(order_res[["vec"]], 1L, length(order_res[["vec"]]))
-  # Recursively call adjust_heap
-  # Here, opn + 1L stands for the operation of swapping in order_res[["vec"]]
-  adjust_heap(order_res[["vec"]], decreasing, 1L, order_res[["opn"]] + 1L)
+  if ("opn" %in% names(arg_list) == TRUE) {
+    opn <- arg_list[["opn"]]
+  } else {
+    opn <- 0L
+  }
+  # Split vector to sort
+  vec_sort <- vec[1L:(length(vec) - tail)]
+  if (tail > 0L) {
+    vec_tail <- vec[(length(vec) - tail + 1L):length(vec)]
+  } else {
+    vec_tail <- NULL
+  }
+  if (length(vec_sort) > 1L) {
+    if (tail == 0L) {
+      # Initial setup by comparing root with leaves from bottom to top
+      # After recur_idx iterations, the recur_idx-th layer is sorted
+      order_res <- purrr::reduce(
+        1:(ceiling(log2(length(vec_sort))) - 1L),
+        function(order_res, recur_idx) {
+          floor(length(vec_sort) / 2L):(2^(recur_idx - 1L)) %>%
+            purrr::reduce(
+              ~ {
+                vec_tmp <- .x[["vec"]]
+                opn <- .x[["opn"]]
+                vec_tmp <- swap_heap(vec_tmp, decreasing, .y)
+                vec_tmp <- purrr::pluck(vec_tmp, "vec")
+                list(vec = vec_tmp, opn = opn + 1L)
+              },
+              .init = order_res
+            )
+        },
+        .init = list(vec = vec_sort, opn = opn)
+      )
+      vec_sort <- order_res[["vec"]]
+      opn <- order_res[["opn"]]
+    } else {
+      # Go through the heap in a top-down manner
+      cur_idx <- 1L
+      while(2L * cur_idx <= length(vec_sort)) {
+        vec_sort <- swap_heap(vec_sort, decreasing, cur_idx)
+        # Update current idx if swap has happened
+        vec_status <- purrr::pluck(vec_sort, "status")
+        vec_sort <- purrr::pluck(vec_sort, "vec")
+        opn <- opn + 1L
+        if (vec_status == 0L) {
+          break
+        } else {
+          cur_idx <- cur_idx * 2L - 1L + vec_status
+        }
+      }
+    }
+    # Swap the first and the last elements of vec_sort
+    vec_new <- swap(vec_sort, 1L, length(vec_sort))
+    # Add sorted tail
+    vec_new <- c(vec_new, vec_tail)
+    # Here, opn + 1L stands for the operation of swapping in vec_new
+    heap_sort(vec_new, decreasing, tail = tail + 1L, opn = opn + 1L)
+  } else {
+    # Stop recursion
+    list(vec = vec, opn = opn)
+  }
 }
 # Unit heap swap function
 swap_heap <- function(vec, decreasing = FALSE, cur_idx) {
@@ -170,37 +213,6 @@ swap_heap <- function(vec, decreasing = FALSE, cur_idx) {
     }
   }
   list(vec = vec, status = status)
-}
-# Recursion function
-adjust_heap <- function(vec, decreasing = FALSE, tail, opn) {
-  # Split vector to sort
-  vec_sort <- vec[1L:(length(vec) - tail)]
-  vec_tail <- vec[(length(vec) - tail + 1L):length(vec)]
-  if (length(vec_sort) > 1L) {
-    # Go through the heap in a top-down manner
-    cur_idx <- 1L
-    while(2L * cur_idx <= length(vec_sort)) {
-      vec_sort <- swap_heap(vec_sort, decreasing, cur_idx)
-      # Update current idx if swap has happened
-      vec_status <- purrr::pluck(vec_sort, "status")
-      vec_sort <- purrr::pluck(vec_sort, "vec")
-      opn <- opn + 1L
-      if (vec_status == 0L) {
-        break
-      } else {
-        cur_idx <- cur_idx * 2L - 1L + vec_status
-      }
-    }
-    # Swap the first and the last elements of vec_sort
-    vec_new <- swap(vec_sort, 1L, length(vec_sort))
-    # Add sorted tail
-    vec_new <- c(vec_new, vec_tail)
-    # Here, opn + 1L stands for the operation of swapping in vec_new
-    adjust_heap(vec_new, decreasing, tail + 1L, opn + 1L)
-  } else {
-    # Stop recursion
-    list(vec = vec, opn = opn)
-  }
 }
 
 # Test
